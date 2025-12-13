@@ -1,0 +1,185 @@
+-- Pengaturan awal
+getgenv().autoThank = false
+getgenv().promoSpam = false
+
+-- Services
+local Players = game:GetService("Players")
+local TextChatService = game:GetService("TextChatService")
+local VirtualUser = game:GetService("VirtualUser")
+local localPlayer = Players.LocalPlayer
+local chat = TextChatService:WaitForChild("TextChannels"):WaitForChild("RBXGeneral")
+
+-- Anti-AFK
+Players.LocalPlayer.Idled:Connect(function()
+	VirtualUser:CaptureController()
+	VirtualUser:ClickButton1(Vector2.new(0, 0))
+end)
+
+-- GUI Setup (Tidak diubah)
+local ScreenGui = Instance.new("ScreenGui", localPlayer:WaitForChild("PlayerGui"))
+ScreenGui.Name = "AutoGUI"
+ScreenGui.ResetOnSpawn = false
+
+local Frame = Instance.new("Frame", ScreenGui)
+Frame.Size = UDim2.new(0, 220, 0, 160)
+Frame.Position = UDim2.new(0.5, -110, 0.5, -80)
+Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Frame.Active = true
+Frame.Draggable = true
+
+local toggleButton = Instance.new("TextButton", ScreenGui)
+toggleButton.Size = UDim2.new(0, 40, 0, 40)
+toggleButton.Position = UDim2.new(1, -45, 0.5, -20)
+toggleButton.BackgroundColor3 = Color3.fromRGB(90, 90, 90)
+toggleButton.TextColor3 = Color3.new(1, 1, 1)
+toggleButton.Text = "≡"
+toggleButton.ZIndex = 10
+toggleButton.Active = true
+toggleButton.Draggable = true
+
+local guiVisible = true
+toggleButton.MouseButton1Click:Connect(function()
+	guiVisible = not guiVisible
+	Frame.Visible = guiVisible
+end)
+
+-- GUI Elements (Tidak diubah)
+local ThankButton = Instance.new("TextButton", Frame)
+ThankButton.Size = UDim2.new(0, 200, 0, 40)
+ThankButton.Position = UDim2.new(0, 10, 0, 10)
+ThankButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+ThankButton.TextColor3 = Color3.new(1, 1, 1)
+
+local PromoButton = Instance.new("TextButton", Frame)
+PromoButton.Size = UDim2.new(0, 200, 0, 40)
+PromoButton.Position = UDim2.new(0, 10, 0, 60)
+PromoButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+PromoButton.TextColor3 = Color3.new(1, 1, 1)
+
+local StatusLabel = Instance.new("TextLabel", Frame)
+StatusLabel.Size = UDim2.new(0, 200, 0, 20)
+StatusLabel.Position = UDim2.new(0, 10, 0, 105)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.TextColor3 = Color3.new(1, 1, 1)
+StatusLabel.TextScaled = true
+
+local SignatureLabel = Instance.new("TextLabel", Frame)
+SignatureLabel.Size = UDim2.new(0, 200, 0, 20)
+SignatureLabel.Position = UDim2.new(0, 10, 1, -25)
+SignatureLabel.BackgroundTransparency = 1
+SignatureLabel.TextColor3 = Color3.new(1, 1, 1)
+SignatureLabel.Text = "LYNX x DHINZ"
+SignatureLabel.Font = Enum.Font.SourceSansBold
+SignatureLabel.TextScaled = true
+
+local function updateGUI()
+	ThankButton.Text = "Toggle Auto Thank (" .. (getgenv().autoThank and "ON" or "OFF") .. ")"
+	PromoButton.Text = "Toggle Auto Promo (" .. (getgenv().promoSpam and "ON" or "OFF") .. ")"
+	StatusLabel.Text = "Status: Thank " .. (getgenv().autoThank and "ON" or "OFF") .. " / Promo " .. (getgenv().promoSpam and "ON" or "OFF")
+end
+
+updateGUI()
+
+-- Messages (Tidak diubah)
+local thankMessages = {
+	"Thank you so much! With that donation, my avatar can finally stop eating imaginary noodles. Ramen is great, but air ramen? Not so much.",
+}
+
+local promoMessages = {
+	"Support the cause! Every bit helps. 💖",
+	"Join the movement! Your donation makes a difference.",
+	"Thanks for being awesome! Keep the support coming!",
+}
+
+-- Promo Delay System
+local promoDelayUntil = 0
+
+local function getRandomPromoInterval()
+	-- Interval acak antara 15 sampai 30 detik
+	return math.random(15, 30)
+end
+
+-- Shuffle function (Tidak diubah)
+local function shuffle(array)
+	local shuffled = {}
+	local indices = {}
+	for i = 1, #array do table.insert(indices, i) end
+	for i = #indices, 2, -1 do
+		local j = math.random(i)
+		indices[i], indices[j] = indices[j], indices[i]
+	end
+	for _, i in ipairs(indices) do
+		table.insert(shuffled, array[i])
+	end
+	return shuffled
+end
+
+local shuffledPromo = shuffle(promoMessages)
+local shuffledIndex = 1
+
+-- Auto Promo Logic (Tidak diubah)
+task.spawn(function()
+	while true do
+		if getgenv().promoSpam then
+			local currentTime = tick()
+			if currentTime >= promoDelayUntil then
+				if chat then
+					local msg = shuffledPromo[shuffledIndex]
+					chat:SendAsync(msg)
+					shuffledIndex += 1
+					if shuffledIndex > #shuffledPromo then
+						shuffledPromo = shuffle(promoMessages)
+						shuffledIndex = 1
+					end
+				end
+				promoDelayUntil = currentTime + getRandomPromoInterval()
+			end
+		end
+		task.wait(1)
+	end
+end)
+
+-- Auto Thank Logic + Promo Pause Trigger
+local leaderstats = localPlayer:WaitForChild("leaderstats")
+local raisedStat = leaderstats:WaitForChild("Raised")
+local lastRaised = raisedStat.Value
+
+raisedStat.Changed:Connect(function()
+	if getgenv().autoThank then
+		local newRaised = raisedStat.Value
+		if newRaised > lastRaised then
+			local character = localPlayer.Character
+			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+			
+			if humanoid then
+				-- Loncat 3 kali dengan interval 0.3 detik
+				for i = 1, 3 do
+					humanoid.Jump = true
+					task.wait(0.3) 
+				end
+			end
+			
+			-- Jeda 3 detik (simulasi mengetik)
+			task.wait(3) 
+
+			if chat then
+				local msg = thankMessages[math.random(1, #thankMessages)]
+				chat:SendAsync(msg)
+			end
+			lastRaised = newRaised
+		end
+	end
+	-- Jeda 36 detik untuk promosi setelah donasi
+	promoDelayUntil = tick() + 36 
+end)
+
+-- Button Logic (Tidak diubah)
+ThankButton.MouseButton1Click:Connect(function()
+	getgenv().autoThank = not getgenv().autoThank
+	updateGUI()
+end)
+
+PromoButton.MouseButton1Click:Connect(function()
+	getgenv().promoSpam = not getgenv().promoSpam
+	updateGUI()
+end)
